@@ -1,15 +1,19 @@
-from minsearch import Index
+import os
 import requests
 import streamlit as st
+from minsearch import Index
 
 def index_data(repo_owner: str, repo_name: str, filter=None):
     """Fetch repository content and build searchable index."""
+    headers = {}
+    token = os.getenv("GITHUB_TOKEN")
+    if token:
+        headers = {"Authorization": f"token {token}"}
 
     url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/contents"
-    response = requests.get(url)
+    response = requests.get(url, headers=headers)
     files = response.json()
 
-    # ✅ Handle API errors
     if not isinstance(files, list):
         st.error(f"GitHub API error: {files.get('message', 'Unknown error')}")
         return None
@@ -22,8 +26,7 @@ def index_data(repo_owner: str, repo_name: str, filter=None):
         if filter and not filter(f):
             continue
 
-        # Download content
-        raw = requests.get(f["download_url"]).text
+        raw = requests.get(f["download_url"], headers=headers).text
         docs.append({
             "filename": f["name"],
             "content": raw,
