@@ -1,14 +1,18 @@
-# application/ingest.py
 from minsearch import Index
 import requests
+import streamlit as st
 
 def index_data(repo_owner: str, repo_name: str, filter=None):
     """Fetch repository content and build searchable index."""
 
-    # Example docs loader — you can adapt to your own GitHub content structure
     url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/contents"
     response = requests.get(url)
     files = response.json()
+
+    # ✅ Handle API errors
+    if not isinstance(files, list):
+        st.error(f"GitHub API error: {files.get('message', 'Unknown error')}")
+        return None
 
     docs = []
     for f in files:
@@ -26,14 +30,15 @@ def index_data(repo_owner: str, repo_name: str, filter=None):
             "keywords": f["name"].split("_")
         })
 
-    # ✅ Correct Index initialization
+    if not docs:
+        st.warning("No markdown files found in the repo.")
+        return None
+
     index = Index(
         text_fields=["content"],
         keyword_fields=["keywords"]
     )
 
-    # ✅ Fit the index with documents
     index.fit(docs)
-
     return index
 
