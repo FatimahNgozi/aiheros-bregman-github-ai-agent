@@ -1,0 +1,21 @@
+[project]
+name = "aiheros-bregman-app"
+version = "0.1.0"
+description = "An AI assistant that answers repository-related questions using Gemini and local search."
+authors = [{ name = "Fatimah Adeniyi" }]
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "streamlit>=1.38.0",
+    "minsearch>=0.0.5",
+    "openai>=1.108.2",
+    "pydantic-ai>=1.0.9",
+    "sentence-transformers>=3.1.1",
+    "python-frontmatter>=1.1.0",
+    "requests>=2.32.3",
+    "tqdm>=4.66.5",
+]
+
+[tool.uv]
+index-url = "https://pypi.org/simple"
