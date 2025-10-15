@@ -31,12 +31,7 @@ def index_data(repo_owner: str, repo_name: str, filter=None):
 
     print(f"📚 Loaded {len(docs)} files from {repo_name} for indexing...")
 
-    index = Index(
-        text_key="content",
-        keyword_index=True,
-        vector_index=True,
-        embed_fn=model.encode
-    )
+    index = Index(docs)
 
     index.fit(docs)
     print("✅ Index built successfully!")
