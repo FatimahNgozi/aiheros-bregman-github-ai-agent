@@ -79,11 +79,9 @@ def index_data(repo_owner: str, repo_name: str, file_filter=None):
     print(f"📄 Indexed {len(docs)} documents")
 
     # Create a MinSearch index
-    index = Index(
-        docs=docs,
-        text_fields=["text", "filename"],
-        keyword_fields=["filename"]
-    )
+	index = Index(text_fields=["path", "content"])
+	index.fit(docs)
+
 
     print("✅ Index created successfully!")
     return index
