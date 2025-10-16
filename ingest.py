@@ -1,47 +1,90 @@
+"""ingest.py — Fetch and index GitHub repository content for search."""
+
 import os
 import requests
-import streamlit as st
+from dotenv import load_dotenv
 from minsearch import Index
 
-def index_data(repo_owner: str, repo_name: str, filter=None):
-    """Fetch repository content and build searchable index."""
-    headers = {}
-    token = os.getenv("GITHUB_TOKEN")
-    if token:
-        headers = {"Authorization": f"token {token}"}
+# --- Load environment variables ---
+load_dotenv()
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
-    url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/contents"
+# --- Helper: fetch repository files recursively ---
+def get_repo_files_recursive(owner, repo, path="", token=None):
+    """Recursively list files from a GitHub repository."""
+    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+    headers = {"Authorization": f"token {token}"} if token else {}
+
     response = requests.get(url, headers=headers)
-    files = response.json()
+    if response.status_code == 403:
+        raise Exception(
+            f"GitHub API rate limit exceeded. Use a valid GITHUB_TOKEN in your .env file."
+        )
+    elif response.status_code != 200:
+        raise Exception(f"GitHub API error: {response.status_code} - {response.text}")
 
-    if not isinstance(files, list):
-        st.error(f"GitHub API error: {files.get('message', 'Unknown error')}")
-        return None
+    items = response.json()
+    files = []
+    for item in items:
+        if item["type"] == "file":
+            files.append(item)
+        elif item["type"] == "dir":
+            files += get_repo_files_recursive(owner, repo, item["path"], token)
+    return files
+
+
+# --- Helper: download file content ---
+def download_file_content(file_url, token=None):
+    headers = {"Authorization": f"token {token}"} if token else {}
+    response = requests.get(file_url, headers=headers)
+    if response.status_code == 200:
+        return response.text
+    return None
+
+
+# --- Main indexing function ---
+def index_data(repo_owner: str, repo_name: str, file_filter=None):
+    """
+    Downloads, filters, and indexes files from a GitHub repo.
+    Returns a MinSearch Index for semantic + keyword search.
+    """
+    print(f"📥 Fetching repository: {repo_owner}/{repo_name}")
+    token = GITHUB_TOKEN
+
+    files = get_repo_files_recursive(repo_owner, repo_name, token=token)
+    print(f"✅ Retrieved {len(files)} files from GitHub")
 
     docs = []
     for f in files:
-        if not f["name"].endswith(".md"):
+        filename = f["name"].lower()
+
+        # Skip irrelevant files
+        if not (filename.endswith(".md") or filename.endswith(".py") or filename.endswith(".yaml")):
             continue
 
-        if filter and not filter(f):
+        # Apply user filter if defined
+        if file_filter and not file_filter(f):
             continue
 
-        raw = requests.get(f["download_url"], headers=headers).text
+        content = download_file_content(f["download_url"], token)
+        if not content:
+            continue
+
         docs.append({
-            "filename": f["name"],
-            "content": raw,
-            "keywords": f["name"].split("_")
+            "filename": f["path"],
+            "text": content,
+            "url": f["html_url"]
         })
 
-    if not docs:
-        st.warning("No markdown files found in the repo.")
-        return None
+    print(f"📄 Indexed {len(docs)} documents")
 
+    # Create a MinSearch index
     index = Index(
-        text_fields=["content"],
-        keyword_fields=["keywords"]
+        docs=docs,
+        text_fields=["text", "filename"],
+        keyword_fields=["filename"]
     )
 
-    index.fit(docs)
+    print("✅ Index created successfully!")
     return index
 

@@ -1,18 +1,22 @@
-"""search_agent.py — configures the Gemini search agent"""
+# application/search_agent.py
 
 from pydantic_ai import Agent
 from application.search_tools import hybrid_search
 
 def init_agent(index, repo_owner: str, repo_name: str):
-    """Initialize Gemini agent with search capabilities."""
+    system_prompt = f"""
+You are a knowledgeable assistant for the GitHub repository:
+https://github.com/{repo_owner}/{repo_name}
+
+Answer questions using only the repository's content. Cite filenames or code snippets where relevant.
+"""
+
+    # Use hybrid_search as the tool
     agent = Agent(
-        name="bregman_agent",
-        model="gemini-1.5-pro",
-        instructions=(
-            f"You are an expert assistant for the GitHub repository '{repo_owner}/{repo_name}'. "
-            "You can search the repository files to answer questions accurately. "
-            "Always include relevant details or snippets from the repository in your responses."
-        ),
+        model="gemini-2.0-flash",
+        instructions=system_prompt,
         tools=[lambda query: hybrid_search(index, query)]
     )
+
     return agent
+

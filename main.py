@@ -1,84 +1,51 @@
+"""main.py — Streamlit app for DevOps Exercises Q&A using GitHub repo content."""
+
 import streamlit as st
-import asyncio
+from dotenv import load_dotenv
+import os
+from application import ingest
 
-from application import ingest, search_agent, logs
+# --- Load environment variables ---
+load_dotenv()
 
-
-# --- Initialization ---
-@st.cache_resource
-def init_agent():
-    # 👇 Replace with your actual repo details
-    repo_owner = "fatimah-adeniyi"
-    repo_name = "aws-dms-migration"
-
-    def filter(doc):
-        # Filter optional: only index relevant files
-        return doc["filename"].endswith(".py") or "dms" in doc["filename"].lower()
-
-    st.write("🔄 Indexing your repository... please wait.")
-    index = ingest.index_data(repo_owner, repo_name, filter=filter)
-    agent = search_agent.init_agent(index, repo_owner, repo_name)
-    return agent
-
-
-# Load Gemini agent
-agent = init_agent()
-
+# --- Default repo to use ---
+REPO_OWNER = "bregman-arie"
+REPO_NAME = "devops-exercises"
 
 # --- Streamlit UI setup ---
-st.set_page_config(page_title="AWS DMS Assistant", page_icon="🧠", layout="centered")
-st.title("🧠 AWS DMS Assistant")
-st.caption("Ask me anything about your AWS DMS migration repository.")
+st.set_page_config(page_title="DevOps Q&A Assistant", page_icon="🧠", layout="wide")
+st.title("🧠 DevOps Exercises AI Assistant")
+st.markdown("Ask me anything about **DevOps**, based on the open-source repo [bregman-arie/devops-exercises](https://github.com/bregman-arie/devops-exercises)")
 
-
-# --- Chat session state ---
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-
-# --- Display past chat ---
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-
-
-# --- Streaming helper ---
-def stream_response(prompt: str):
-    async def agen():
-        async with agent.run_stream(user_prompt=prompt) as result:
-            last_len = 0
-            full_text = ""
-            async for chunk in result.stream_output(debounce_by=0.02):
-                new_text = chunk[last_len:]
-                last_len = len(chunk)
-                full_text = chunk
-                if new_text:
-                    yield new_text
-
-            # 🪵 Log once finished
-            logs.log_interaction_to_file(agent, result.new_messages())
-            st.session_state._last_response = full_text
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    agen_obj = agen()
-
+# --- Cached function to avoid re-downloading GitHub data ---
+@st.cache_resource(show_spinner="🔍 Indexing repository files...")
+def load_index():
+    """Load or build the searchable index from the GitHub repo."""
     try:
-        while True:
-            piece = loop.run_until_complete(agen_obj.__anext__())
-            yield piece
-    except StopAsyncIteration:
-        return
+        index = ingest.index_data(REPO_OWNER, REPO_NAME)
+        return index
+    except Exception as e:
+        st.error(f"Error building index: {e}")
+        return None
 
+# --- Initialize index ---
+index = load_index()
 
-# --- Handle new chat input ---
-if prompt := st.chat_input("Ask your question about AWS DMS..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+if not index:
+    st.stop()
 
-    with st.chat_message("assistant"):
-        response_text = st.write_stream(stream_response(prompt))
+# --- Simple search or question interface ---
+query = st.text_input("💬 Ask a DevOps-related question or search for a topic:")
+if query:
+    with st.spinner("Searching..."):
+        results = index.search(query, top_k=5)
+        if not results:
+            st.warning("No relevant information found.")
+        else:
+            st.subheader("📚 Top Results:")
+            for r in results:
+                st.markdown(f"**File:** `{r['filename']}`")
+                st.markdown(f"[View on GitHub]({r['url']})")
+                st.code(r['text'][:800] + "..." if len(r['text']) > 800 else r['text'])
+                st.markdown("---")
 
-    final_text = getattr(st.session_state, "_last_response", response_text)
-    st.session_state.messages.append({"role": "assistant", "content": final_text})
