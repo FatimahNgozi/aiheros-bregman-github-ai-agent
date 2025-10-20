@@ -1,87 +1,67 @@
-"""ingest.py — Fetch and index GitHub repository content for search."""
-
-import os
 import requests
-from dotenv import load_dotenv
+import os
 from minsearch import Index
+from dotenv import load_dotenv
 
-# --- Load environment variables ---
 load_dotenv()
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
-# --- Helper: fetch repository files recursively ---
-def get_repo_files_recursive(owner, repo, path="", token=None):
-    """Recursively list files from a GitHub repository."""
-    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
-    headers = {"Authorization": f"token {token}"} if token else {}
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+RAW_BASE = "https://raw.githubusercontent.com"
+
+def list_repo_files(owner, repo):
+    """
+    Get all .md files in the GitHub repo using the public raw file tree.
+    This uses GitHub’s public tree API once, then downloads from raw.githubusercontent.com
+    (which avoids the API rate limit issue entirely).
+    """
+    url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/master?recursive=1"
+    headers = {"Accept": "application/vnd.github.v3+json"}
+    if GITHUB_TOKEN:
+        headers["Authorization"] = f"token {GITHUB_TOKEN}"
 
     response = requests.get(url, headers=headers)
-    if response.status_code == 403:
-        raise Exception(
-            f"GitHub API rate limit exceeded. Use a valid GITHUB_TOKEN in your .env file."
-        )
+    if response.status_code == 403 and "API rate limit" in response.text:
+        raise Exception("⚠️ GitHub API rate limit exceeded — please add or update your GITHUB_TOKEN in .env.")
     elif response.status_code != 200:
         raise Exception(f"GitHub API error: {response.status_code} - {response.text}")
 
-    items = response.json()
-    files = []
-    for item in items:
-        if item["type"] == "file":
-            files.append(item)
-        elif item["type"] == "dir":
-            files += get_repo_files_recursive(owner, repo, item["path"], token)
-    return files
+    tree = response.json().get("tree", [])
+    md_files = [item["path"] for item in tree if item["path"].endswith(".md")]
+    return md_files
 
 
-# --- Helper: download file content ---
-def download_file_content(file_url, token=None):
-    headers = {"Authorization": f"token {token}"} if token else {}
-    response = requests.get(file_url, headers=headers)
+def get_file_content(owner, repo, path):
+    """Fetch markdown file directly from raw.githubusercontent.com (no API)."""
+    url = f"{RAW_BASE}/{owner}/{repo}/master/{path}"
+    response = requests.get(url)
     if response.status_code == 200:
         return response.text
-    return None
+    else:
+        print(f"⚠️ Could not fetch {path} (HTTP {response.status_code})")
+        return ""
 
 
-# --- Main indexing function ---
-def index_data(repo_owner: str, repo_name: str, file_filter=None):
-    """
-    Downloads, filters, and indexes files from a GitHub repo.
-    Returns a MinSearch Index for semantic + keyword search.
-    """
-    print(f"📥 Fetching repository: {repo_owner}/{repo_name}")
-    token = GITHUB_TOKEN
-
-    files = get_repo_files_recursive(repo_owner, repo_name, token=token)
-    print(f"✅ Retrieved {len(files)} files from GitHub")
+def index_data(repo_owner, repo_name):
+    print(f"📂 Fetching files from {repo_owner}/{repo_name} ...")
+    files = list_repo_files(repo_owner, repo_name)
 
     docs = []
-    for f in files:
-        filename = f["name"].lower()
+    for path in files:
+        content = get_file_content(repo_owner, repo_name, path)
+        if content.strip():
+            docs.append({
+                "id": path,
+                "filename": os.path.basename(path),
+                "text": content
+            })
 
-        # Skip irrelevant files
-        if not (filename.endswith(".md") or filename.endswith(".py") or filename.endswith(".yaml")):
-            continue
+    print(f"✅ Indexed {len(docs)} markdown files.")
 
-        # Apply user filter if defined
-        if file_filter and not file_filter(f):
-            continue
+    index = Index(
+        docs,
+        text_fields=["text", "filename"],
+        keyword_fields=["id"]
+    )
 
-        content = download_file_content(f["download_url"], token)
-        if not content:
-            continue
-
-        docs.append({
-            "filename": f["path"],
-            "text": content,
-            "url": f["html_url"]
-        })
-
-    print(f"📄 Indexed {len(docs)} documents")
-
-# Create a MinSearch index
-    index = Index(text_fields=["path", "content"])
-    index.fit(docs)
-
-
-    print("✅ Index created successfully!")
     return index
+

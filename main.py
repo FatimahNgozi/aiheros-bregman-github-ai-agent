@@ -1,51 +1,64 @@
-"""main.py — Streamlit app for DevOps Exercises Q&A using GitHub repo content."""
-
 import streamlit as st
 from dotenv import load_dotenv
 import os
 from application import ingest
+import time
 
-# --- Load environment variables ---
+# ----------------------------------------------------------------------
+# Load environment variables
+# ----------------------------------------------------------------------
 load_dotenv()
+repo_owner = "bregman-arie"
+repo_name = "devops-exercises"
+token = os.getenv("GITHUB_TOKEN")
 
-# --- Default repo to use ---
-REPO_OWNER = "bregman-arie"
-REPO_NAME = "devops-exercises"
+# ----------------------------------------------------------------------
+# Streamlit Page Setup
+# ----------------------------------------------------------------------
+st.set_page_config(page_title="DevOps Exercises Search", layout="wide")
+st.title("🧠 DevOps Exercises Search Assistant")
+st.caption(f"Indexing GitHub repo: **{repo_owner}/{repo_name}**")
 
-# --- Streamlit UI setup ---
-st.set_page_config(page_title="DevOps Q&A Assistant", page_icon="🧠", layout="wide")
-st.title("🧠 DevOps Exercises AI Assistant")
-st.markdown("Ask me anything about **DevOps**, based on the open-source repo [bregman-arie/devops-exercises](https://github.com/bregman-arie/devops-exercises)")
-
-# --- Cached function to avoid re-downloading GitHub data ---
-@st.cache_resource(show_spinner="🔍 Indexing repository files...")
+# ----------------------------------------------------------------------
+# Build index (cached)
+# ----------------------------------------------------------------------
+@st.cache_resource(show_spinner=False)
 def load_index():
-    """Load or build the searchable index from the GitHub repo."""
-    try:
-        index = ingest.index_data(REPO_OWNER, REPO_NAME)
-        return index
-    except Exception as e:
-        st.error(f"Error building index: {e}")
-        return None
+    with st.spinner("Building searchable index from GitHub..."):
+        try:
+            index = ingest.index_data(repo_owner, repo_name)
+            return index
+        except Exception as e:
+            st.error(f"❌ Error building index: {e}")
+            return None
 
-# --- Initialize index ---
 index = load_index()
 
 if not index:
     st.stop()
 
-# --- Simple search or question interface ---
-query = st.text_input("💬 Ask a DevOps-related question or search for a topic:")
+st.success("✅ Index built successfully! You can now search below.")
+
+# ----------------------------------------------------------------------
+# Search Interface
+# ----------------------------------------------------------------------
+query = st.text_input("🔍 Enter your DevOps question or topic:", "")
+
 if query:
-    with st.spinner("Searching..."):
-        results = index.search(query, top_k=5)
-        if not results:
-            st.warning("No relevant information found.")
-        else:
-            st.subheader("📚 Top Results:")
-            for r in results:
-                st.markdown(f"**File:** `{r['filename']}`")
-                st.markdown(f"[View on GitHub]({r['url']})")
-                st.code(r['text'][:800] + "..." if len(r['text']) > 800 else r['text'])
+    st.write("Searching...")
+    start = time.time()
+    results = index.search(query, top_k=10)
+    elapsed = time.time() - start
+
+    if results:
+        st.success(f"✅ Found {len(results)} results in {elapsed:.2f}s.")
+        for r in results:
+            with st.expander(r["filename"]):
+                st.markdown(f"**File:** `{r['id']}`")
                 st.markdown("---")
+                st.markdown(r["text"][:1000] + "...")
+    else:
+        st.warning("⚠️ No results found.")
+else:
+    st.info("👆 Type a query above to start searching.")
 
