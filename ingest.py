@@ -42,9 +42,7 @@ def get_file_content(owner, repo, path):
         print(f"⚠️ Could not fetch {path} (HTTP {response.status_code})")
         return ""
 
-
 def index_data(repo_owner, repo_name):
-    """Fetch, parse, and index markdown files."""
     print(f"📂 Fetching files from {repo_owner}/{repo_name} ...")
     files = list_repo_files(repo_owner, repo_name)
 
@@ -60,21 +58,11 @@ def index_data(repo_owner, repo_name):
 
     print(f"✅ Indexed {len(docs)} markdown files.")
 
-    # --- robust handling depending on minsearch version ---
-    try:
-        # Newer version of minsearch expects docs directly in constructor
-        index = Index(
-            docs=docs,
-            text_fields=["text", "filename"],
-            keyword_fields=["id"]
-        )
-    except TypeError:
-        # Fallback for older versions where Index() takes no docs argument
-        index = Index(
-            text_fields=["text", "filename"],
-            keyword_fields=["id"]
-        )
-        index.add(docs)
+    # ✅ Correct for minsearch 0.0.7
+    index = Index(
+        text_fields=["text", "filename"],
+        keyword_fields=["id"]
+    )
+    index.fit(docs)
 
     return index
-
