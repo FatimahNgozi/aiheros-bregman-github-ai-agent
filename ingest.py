@@ -1,21 +1,18 @@
 import requests
 import os
+import json
+from minsearch import Index
 from dotenv import load_dotenv
-
-# If minsearch fails import, we’ll handle that too
-try:
-    from minsearch import Index
-except ImportError:
-    raise ImportError("⚠️ The 'minsearch' library is not installed. Run 'pip install minsearch'.")
 
 load_dotenv()
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 RAW_BASE = "https://raw.githubusercontent.com"
+CACHE_FILE = "index_cache.json"  # local cache file
 
 
 def list_repo_files(owner, repo):
-    """List all markdown files in the repo using GitHub tree API."""
+    """Fetch all .md files from GitHub repo tree."""
     url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/master?recursive=1"
     headers = {"Accept": "application/vnd.github.v3+json"}
     if GITHUB_TOKEN:
@@ -33,16 +30,47 @@ def list_repo_files(owner, repo):
 
 
 def get_file_content(owner, repo, path):
-    """Fetch file directly from raw.githubusercontent.com."""
+    """Fetch markdown file content directly from raw.githubusercontent.com."""
     url = f"{RAW_BASE}/{owner}/{repo}/master/{path}"
     response = requests.get(url)
     if response.status_code == 200:
         return response.text
     else:
-        print(f"⚠️ Could not fetch {path} (HTTP {response.status_code})")
+        print(f"⚠️ Skipping {path} (HTTP {response.status_code})")
         return ""
 
-def index_data(repo_owner, repo_name):
+
+def load_cached_index():
+    """Load cached docs from local JSON file if it exists."""
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            print(f"📦 Loaded {len(data)} cached documents from {CACHE_FILE}")
+            return data
+        except Exception as e:
+            print(f"⚠️ Failed to load cache: {e}")
+    return None
+
+
+def save_cache(docs):
+    """Save docs to cache file."""
+    try:
+        with open(CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(docs, f, ensure_ascii=False, indent=2)
+        print(f"✅ Saved {len(docs)} documents to cache ({CACHE_FILE})")
+    except Exception as e:
+        print(f"⚠️ Failed to save cache: {e}")
+
+
+def index_data(repo_owner, repo_name, force_refresh=False):
+    """Build (or load) the index."""
+    if not force_refresh:
+        cached_docs = load_cached_index()
+        if cached_docs:
+            print("💾 Using cached index (no API calls needed).")
+            return Index(cached_docs, ["text", "filename"], ["id"])
+
     print(f"📂 Fetching files from {repo_owner}/{repo_name} ...")
     files = list_repo_files(repo_owner, repo_name)
 
@@ -57,12 +85,7 @@ def index_data(repo_owner, repo_name):
             })
 
     print(f"✅ Indexed {len(docs)} markdown files.")
+    save_cache(docs)
 
-    # ✅ Correct for minsearch 0.0.7
-    index = Index(
-        text_fields=["text", "filename"],
-        keyword_fields=["id"]
-    )
-    index.fit(docs)
+    return Index(docs, ["text", "filename"], ["id"])
 
-    return index

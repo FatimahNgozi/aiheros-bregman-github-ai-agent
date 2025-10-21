@@ -1,63 +1,59 @@
 import streamlit as st
 from application import ingest
-from dotenv import load_dotenv
-import os
 
-# Load environment variables (includes GITHUB_TOKEN)
-load_dotenv()
-
-# Set repo info (you can edit this if needed)
+# 🔧 Configuration
 REPO_OWNER = "bregman-arie"
 REPO_NAME = "devops-exercises"
 
-# --------------------------------------------------------------------
-# Streamlit app configuration
-# --------------------------------------------------------------------
-st.set_page_config(page_title="AIHEROS – Bregman GitHub AI Agent", layout="wide")
 
-st.title("🤖 AIHEROS – Bregman GitHub AI Agent")
-st.write("Search and explore DevOps exercises directly from [bregman-arie/devops-exercises](https://github.com/bregman-arie/devops-exercises).")
-
-# --------------------------------------------------------------------
-# Cache index building to avoid rebuilding every time
-# --------------------------------------------------------------------
-@st.cache_resource(show_spinner=True)
-def build_index():
+# ✅ Cache the index to avoid rebuilding on every reload
+@st.cache_resource
+def load_index(force_refresh=False):
     try:
-        index = ingest.index_data(REPO_OWNER, REPO_NAME)
+        index = ingest.index_data(REPO_OWNER, REPO_NAME, force_refresh=force_refresh)
         return index
     except Exception as e:
         st.error(f"❌ Error building index: {e}")
         return None
 
 
-# --------------------------------------------------------------------
-# Build index once
-# --------------------------------------------------------------------
-with st.spinner("📦 Building index from GitHub repo..."):
-    index = build_index()
+# ✅ App title
+st.set_page_config(page_title="Bregman DevOps AI Agent", layout="wide")
+st.title("🤖 Bregman DevOps Exercises AI Agent")
+st.write("Ask any DevOps-related question based on the **DevOps Exercises** GitHub repository.")
 
-if index is not None:
-    st.success("✅ Index built successfully!")
-else:
+# ✅ Sidebar controls
+st.sidebar.header("⚙️ Controls")
+refresh = st.sidebar.button("🔄 Refresh Index (Force Rebuild)")
+st.sidebar.info("Refreshing rebuilds the index from GitHub and updates the local cache.")
+
+# ✅ Load the search index
+with st.spinner("🔍 Building or loading index..."):
+    index = load_index(force_refresh=refresh)
+
+if not index:
     st.stop()
 
-# --------------------------------------------------------------------
-# Search interface
-# --------------------------------------------------------------------
-query = st.text_input("🔍 Enter your search query:")
+# ✅ Search input
+query = st.text_input("💬 Ask your question:")
+
 if query:
-    try:
-        results = index.search(query, num_results=10)
-        if results:
-            st.write(f"### 🧾 Top {len(results)} results for: `{query}`")
-            for r in results:
-                st.markdown(f"**📄 File:** `{r['filename']}`")
-                st.markdown(f"**🗂 Path:** `{r['id']}`")
-                st.write(r['text'][:500] + "...")
-                st.divider()
-        else:
-            st.warning("No results found.")
-    except Exception as e:
-        st.error(f"❌ Search error: {e}")
+    with st.spinner("🔎 Searching..."):
+        try:
+            results = index.search(query, ["text"], num_results=3)
+
+            if not results:
+                st.warning("No relevant documents found.")
+            else:
+                st.success(f"Found {len(results)} matching files!")
+                for r in results:
+                    st.markdown(f"### 📄 {r['filename']}")
+                    st.caption(f"Path: `{r['id']}`")
+                    st.write(r['text'][:600] + "...")
+                    st.markdown("---")
+
+        except Exception as e:
+            st.error(f"❌ Search error: {e}")
+else:
+    st.info("Type a question above to start searching through the DevOps Exercises content.")
 
