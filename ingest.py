@@ -1,15 +1,21 @@
 import requests
 import os
-from minsearch import Index
 from dotenv import load_dotenv
+
+# If minsearch fails import, we’ll handle that too
+try:
+    from minsearch import Index
+except ImportError:
+    raise ImportError("⚠️ The 'minsearch' library is not installed. Run 'pip install minsearch'.")
 
 load_dotenv()
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 RAW_BASE = "https://raw.githubusercontent.com"
 
+
 def list_repo_files(owner, repo):
-    """Get all .md files in the GitHub repo using the GitHub API."""
+    """List all markdown files in the repo using GitHub tree API."""
     url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/master?recursive=1"
     headers = {"Accept": "application/vnd.github.v3+json"}
     if GITHUB_TOKEN:
@@ -27,7 +33,7 @@ def list_repo_files(owner, repo):
 
 
 def get_file_content(owner, repo, path):
-    """Fetch markdown file directly from raw.githubusercontent.com (no API)."""
+    """Fetch file directly from raw.githubusercontent.com."""
     url = f"{RAW_BASE}/{owner}/{repo}/master/{path}"
     response = requests.get(url)
     if response.status_code == 200:
@@ -38,6 +44,7 @@ def get_file_content(owner, repo, path):
 
 
 def index_data(repo_owner, repo_name):
+    """Fetch, parse, and index markdown files."""
     print(f"📂 Fetching files from {repo_owner}/{repo_name} ...")
     files = list_repo_files(repo_owner, repo_name)
 
@@ -53,12 +60,21 @@ def index_data(repo_owner, repo_name):
 
     print(f"✅ Indexed {len(docs)} markdown files.")
 
-    # ✅ Fixed: old-style initialization (no docs argument in Index())
-    index = Index(
-        text_fields=["text", "filename"],
-        keyword_fields=["id"]
-    )
-    index.add(docs)
+    # --- robust handling depending on minsearch version ---
+    try:
+        # Newer version of minsearch expects docs directly in constructor
+        index = Index(
+            docs=docs,
+            text_fields=["text", "filename"],
+            keyword_fields=["id"]
+        )
+    except TypeError:
+        # Fallback for older versions where Index() takes no docs argument
+        index = Index(
+            text_fields=["text", "filename"],
+            keyword_fields=["id"]
+        )
+        index.add(docs)
 
     return index
 
