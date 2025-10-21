@@ -1,5 +1,6 @@
+
 import streamlit as st
-from clean-repo import ingest
+from application import ingest
 
 # 🔧 Configuration
 REPO_OWNER = "bregman-arie"

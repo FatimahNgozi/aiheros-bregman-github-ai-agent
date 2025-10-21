@@ -65,12 +65,14 @@ def index_data(repo_owner, repo_name, force_refresh=False):
 
         print(f"✅ Indexed {len(docs)} markdown files and saved to cache.")
 
-    # ✅ Build search index
+    # ✅ Build search indexindex = Index(
     index = Index(
-        docs=docs,
-        text_fields=["text", "filename"],
-        keyword_fields=["id"]
+    	text_fields=["text", "filename"],
+    	keyword_fields=["id"]
     )
+
+    index.fit(docs)
+
 
     return index
 
