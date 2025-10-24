@@ -47,13 +47,15 @@ if query:
                 st.warning("No relevant documents found.")
             else:
                 st.success(f"Found {len(results)} matching files!")
-                for r in results:
-                    st.markdown(f"### 📄 {r['filename']}")
-                    st.caption(f"Path: `{r['id']}`")
-                    st.write(r['text'][:600] + "...")
+                for r in results:  # ✅ results is a list of dicts
+                    st.markdown(f"### 📄 {r.get('filename', 'Unknown file')}")
+                    st.caption(f"Path: `{r.get('id', '')}`")
+                    snippet = r.get('text', '')[:600]
+                    st.write(snippet + ("..." if len(snippet) == 600 else ""))
                     st.markdown("---")
 
         except Exception as e:
             st.error(f"❌ Search error: {e}")
+
 else:
     st.info("Type a question above to start searching through the DevOps Exercises content.")
