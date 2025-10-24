@@ -11,7 +11,7 @@ REPO_NAME = "devops-exercises"
 @st.cache_resource
 def load_index(force_refresh=False):
     try:
-        index = ingest.index_data(REPO_OWNER, REPO_NAME, force_refresh=force_refresh)
+        index = ingest.index_data(REPO_OWNER, REPO_NAME)
         return index
     except Exception as e:
         st.error(f"❌ Error building index: {e}")
@@ -57,4 +57,3 @@ if query:
             st.error(f"❌ Search error: {e}")
 else:
     st.info("Type a question above to start searching through the DevOps Exercises content.")
-
