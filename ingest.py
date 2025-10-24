@@ -10,13 +10,11 @@ RAW_BASE = "https://raw.githubusercontent.com"
 
 
 def list_repo_files(owner, repo):
-    """
-    Get all .md files from the GitHub repo tree.
-    """
+    """List all .md files in the GitHub repo."""
     url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/master?recursive=1"
     headers = {"Accept": "application/vnd.github.v3+json"}
     if GITHUB_TOKEN:
-        headers["Authorization"] = f"token {GITHUB_TOKEN}"  # Correct auth header
+        headers["Authorization"] = f"token {GITHUB_TOKEN}"
 
     response = requests.get(url, headers=headers)
     if response.status_code == 403 and "API rate limit" in response.text:
@@ -30,9 +28,7 @@ def list_repo_files(owner, repo):
 
 
 def get_file_content(owner, repo, path):
-    """
-    Fetch markdown file content directly from raw.githubusercontent.com
-    """
+    """Fetch markdown file directly from raw.githubusercontent.com."""
     url = f"{RAW_BASE}/{owner}/{repo}/master/{path}"
     response = requests.get(url)
     if response.status_code == 200:
@@ -43,9 +39,7 @@ def get_file_content(owner, repo, path):
 
 
 def index_data(repo_owner, repo_name):
-    """
-    Build and return a searchable index from markdown files in a GitHub repo.
-    """
+    """Fetch repo data and build a MinSearch index."""
     print(f"📂 Fetching files from {repo_owner}/{repo_name} ...")
     files = list_repo_files(repo_owner, repo_name)
 
@@ -61,12 +55,12 @@ def index_data(repo_owner, repo_name):
 
     print(f"✅ Indexed {len(docs)} markdown files.")
 
-    # ✅ Correct call to Index — note the **positional argument** for docs
+    # ✅ Create index and fit data
     index = Index(
-        docs=docs,
         text_fields=["text", "filename"],
         keyword_fields=["id"]
     )
+    index.fit(docs)
 
     return index
 
