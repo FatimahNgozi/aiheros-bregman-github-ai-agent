@@ -42,27 +42,5 @@ if query:
                     st.markdown("---")
         except Exception as e:
             st.error(f"❌ Search error: {e}")
-________________________________________
-pyproject.toml (recommended)
-Notes: the original project had a requires-python constraint that didn’t match Streamlit’s environment and caused cohere/pydantic-ai resolution problems. This pyproject.toml tightens the python range to <4.0 and removes pydantic-ai which pulls cohere.
-[project]
-name = "devops-ai-agent"
-version = "0.1.0"
-description = "DevOps Exercises AI Agent — optimized"
-readme = "README.md"
-requires-python = ">=3.10,<4.0"
 
-dependencies = [
-  "streamlit>=1.36.0",
-  "openai>=1.11.0",
-  "minsearch>=0.0.7", # explicit newer version
-  "python-frontmatter>=1.1.0",
-  "requests>=2.32.3",
-  "sentence-transformers>=3.0.1",
-  "tqdm>=4.66.4",
-  "python-dotenv>=1.0.0",
-]
-
-[tool.uv.workspace]
-members = ["application", "application/application"]
 

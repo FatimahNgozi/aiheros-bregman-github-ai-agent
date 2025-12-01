@@ -1,30 +1,21 @@
 [project]
-name = "project"
+name = "devops-ai-agent"
 version = "0.1.0"
-description = "Add your description here"
+description = "DevOps Exercises AI Agent — optimized"
 readme = "README.md"
-python = ">=3.10,<4.0"
-dependencies = [
-    "streamlit>=1.36.0",
-    "openai>=1.11.0",
-    "pydantic-ai>=1.0.9",
-    "cohere>=5.18.0",
-    "minsearch>=0.0.5",
-    "python-frontmatter>=1.1.0",
-    "requests>=2.32.3",
-    "sentence-transformers>=3.0.1",
-    "tqdm>=4.66.4",
-    "google-generativeai>=0.8.3"
-]
+requires-python = ">=3.10,<4.0"
 
-[dependency-groups]
-dev = [
-    "jupyter>=1.1.1",
+dependencies = [
+  "streamlit>=1.36.0",
+  "openai>=1.11.0",
+  "minsearch>=0.0.7", # explicit newer version
+  "python-frontmatter>=1.1.0",
+  "requests>=2.32.3",
+  "sentence-transformers>=3.0.1",
+  "tqdm>=4.66.4",
+  "python-dotenv>=1.0.0",
 ]
 
 [tool.uv.workspace]
-members = [
-    "application",
-    "application/application",
-]
+members = ["application", "application/application"]
 
