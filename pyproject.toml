@@ -1,21 +1,26 @@
 [project]
 name = "devops-ai-agent"
 version = "0.1.0"
-description = "DevOps Exercises AI Agent — optimized"
+description = "AI Agent that searches the DevOps Exercises GitHub repo using MinSearch + Streamlit."
 readme = "README.md"
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.9,<3.13"
 
 dependencies = [
-  "streamlit>=1.36.0",
-  "openai>=1.11.0",
-  "minsearch>=0.0.7", # explicit newer version
-  "python-frontmatter>=1.1.0",
-  "requests>=2.32.3",
-  "sentence-transformers>=3.0.1",
-  "tqdm>=4.66.4",
-  "python-dotenv>=1.0.0",
+    "streamlit>=1.36.0",
+    "requests>=2.32.3",
+    "python-dotenv>=1.0.1",
+    "minsearch>=0.0.5",
+    "sentence-transformers>=3.0.1",
+]
+
+[dependency-groups]
+dev = [
+    "jupyter>=1.1.1"
 ]
 
 [tool.uv.workspace]
-members = ["application", "application/application"]
+members = [
+    "application",
+    "application/application",
+]
 
