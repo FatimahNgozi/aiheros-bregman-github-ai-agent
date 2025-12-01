@@ -29,16 +29,16 @@ query = st.text_input("Ask a question about DevOps exercises:")
 
 if query:
     try:
-        results = index.search(query, {"text": 1}, 3)
+        raw = index.search(query, {"text": 1}, 3)
+        docs = index.docs  # MinSearch stores your original documents
 
-        if not results:
-            st.warning("No results found.")
-        else:
-            for r in results:
-                st.subheader(r.get("filename", "Unknown file"))
-                st.caption(r.get("id", "No ID"))
-                st.write((r.get("text", "")[:600]) + "...")
-                st.markdown("---")
+        results = [docs[i] for i in raw]
+
+        for r in results:
+            st.subheader(r["filename"])
+            st.caption(r["id"])
+            st.write(r["text"][:600] + "...")
+            st.markdown("---")
 
     except Exception as e:
         st.error(f"❌ Search error: {e}")
