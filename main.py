@@ -15,31 +15,40 @@ index = load_index()
 
 query = st.text_input("Ask a question:")
 
-
-# ---- FIXED UNIVERSAL SEARCH WRAPPER ---- #
-
-def resolve_results(raw, index_obj):
+# -------------------------------
+# 🔥 UNIVERSAL SAFE SEARCH PARSER
+# -------------------------------
+def safe_search(index_obj, query, limit=3):
+    raw = index_obj.search(query, {"text": 1}, limit)
     docs = index_obj._docs
 
-    # Case 1: [3, 10, 5]
-    if raw and isinstance(raw[0], int):
-        return [docs[i] for i in raw]
+    safe_results = []
 
-    # Case 2: [(3, 0.89), (10, 0.74)]
-    if raw and isinstance(raw[0], (list, tuple)) and len(raw[0]) == 2:
-        return [docs[i] for (i, score) in raw]
+    for item in raw:
+        # Case: "item" is an integer ID → convert to doc
+        if isinstance(item, int):
+            if 0 <= item < len(docs):
+                safe_results.append(docs[item])
+            continue
 
-    # Case 3: Already dicts
-    if raw and isinstance(raw[0], dict):
-        return raw
+        # Case: "item" is (id, score) → extract id
+        if isinstance(item, (list, tuple)) and len(item) == 2:
+            idx = item[0]
+            if isinstance(idx, int) and 0 <= idx < len(docs):
+                safe_results.append(docs[idx])
+            continue
 
-    return []
+        # Case: already dict → accept directly
+        if isinstance(item, dict):
+            safe_results.append(item)
+            continue
+
+    return safe_results
 
 
 if query:
     try:
-        raw = index.search(query, {"text": 1}, 3)   # valid for ALL versions
-        results = resolve_results(raw, index)
+        results = safe_search(index, query, 3)
 
         if not results:
             st.warning("No results found.")
