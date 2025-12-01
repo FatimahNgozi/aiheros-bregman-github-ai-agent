@@ -29,11 +29,7 @@ query = st.text_input("Ask a question about DevOps exercises:")
 
 if query:
     try:
-        results = index.search(
-            query=query,
-            search_fields={"text": 1},
-            num_results=3
-        )
+        results = index.search(query, {"text": 1}, 3)
 
         if not results:
             st.warning("No results found.")
@@ -41,7 +37,7 @@ if query:
             for r in results:
                 st.subheader(r.get("filename", "Unknown file"))
                 st.caption(r.get("id", "No ID"))
-                st.write((r.get("text") or "")[:600] + "...")
+                st.write((r.get("text", "")[:600]) + "...")
                 st.markdown("---")
 
     except Exception as e:
