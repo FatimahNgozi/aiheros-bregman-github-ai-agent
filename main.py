@@ -28,19 +28,22 @@ if index is None:
 query = st.text_input("Ask a question about DevOps exercises:")
 
 if query:
-    with st.spinner("Searching..."):
-        try:
-            results = index.search(query, ["text"], num_results=5)
-            if not results:
-                st.warning("No results found — try other keywords.")
-            else:
-                st.success(f"Found {len(results)} results")
-                for r in results:
-                    st.markdown(f"### 📄 {r.get('filename', r.get('id'))}")
-                    st.caption(r.get('id'))
-                    st.write(r.get('text', '')[:1000] + "...")
-                    st.markdown("---")
-        except Exception as e:
-            st.error(f"❌ Search error: {e}")
+    try:
+        results = index.search(
+            query=query,
+            search_fields={"text": 1},
+            num_results=3
+        )
 
+        if not results:
+            st.warning("No results found.")
+        else:
+            for r in results:
+                st.subheader(r.get("filename", "Unknown file"))
+                st.caption(r.get("id", "No ID"))
+                st.write((r.get("text") or "")[:600] + "...")
+                st.markdown("---")
+
+    except Exception as e:
+        st.error(f"❌ Search error: {e}")
 
